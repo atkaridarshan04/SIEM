@@ -1,71 +1,17 @@
 filebeat.inputs:
-
-# ========== System Logs ============
-
-# - type: filestream
-#   id: my-filestream-id
-#   enabled: false
-#   paths:
-#     - /var/log/*.log
-
-- type: filestream
-  enabled: true
-  paths:
-    - /var/log/auth.log
-  tags: ["authlog"]
-  
-- type: filestream
-  enabled: true
-  paths:
-    - /var/log/syslog
-  tags: ["syslog"]
-  
-- type: filestream
-  enabled: true
-  paths:
-    - /var/log/kern.log
-  tags: ["kernlog"]
-
-- type: filestream
-  enabled: true
-  paths:
-    - /var/log/audit/audit.log
-  tags: ["auditd"]
-
-- type: filestream
-  enabled: true
-  paths:
-    - /var/log/dpkg.log
-  tags: ["dpkglog"]
-
-- type: filestream
-  enabled: true
-  paths:
-    - /var/log/faillog
-    - /var/log/btmp
-    - /var/log/wtmp
-  tags: ["login-attempts"]
-
-- type: filestream
-  enabled: true
-  paths:
-    - /var/log/ufw.log
-  tags: ["firewall"]
-
-# ========== Application Logs ============
-- type: filestream
-  enabled: true
-  paths:
-    - /var/log/nginx/access.log
-    - /var/log/nginx/error.log
-  tags: ["nginx"]
+  - type: filestream
+    paths:
+      - /var/log/auth.log
+      - /var/log/nginx/access.log
+      - /var/log/nginx/error.log
+    tags: ["serverlogs"]
 
 # =============================================
 
 output.kafka:
   enabled: true
   hosts: ["192..168.37.132:9092"]
-  topic: "system-logs"
+  topic: "server-logs"
   partition.round_robin:
     reachable_only: false
   required_acks: 1
