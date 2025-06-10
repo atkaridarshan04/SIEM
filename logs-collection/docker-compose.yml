@@ -1,7 +1,3 @@
-# Kafka Docker Compose
-
-version: "3.8"
-
 services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
@@ -19,7 +15,7 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181 # Connect Kafka to Zookeeper
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092 # Kafka external listener
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://192.168.37.132:9092 # Kafka external listener
       KAFKA_LISTENER_SECURITY_PROTOCOL: PLAINTEXT
       KAFKA_LISTENER_PORT: 9092
       KAFKA_LISTENER_NAME: PLAINTEXT
@@ -31,15 +27,15 @@ services:
     networks:
       - kafka-net
 
-  kafka-ui:
-    image: provectuslabs/kafka-ui:latest
-    ports:
-      - "8080:8080"
-    environment:
-      KAFKA_CLUSTERS_0_NAME: local
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
-    networks:
-      - kafka-net
+  # kafka-ui:
+  #   image: provectuslabs/kafka-ui:latest
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     KAFKA_CLUSTERS_0_NAME: local
+  #     KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+  #   networks:
+  #     - kafka-net
 
 networks:
   kafka-net:

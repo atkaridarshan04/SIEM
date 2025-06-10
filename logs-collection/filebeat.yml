@@ -8,37 +8,37 @@ filebeat.inputs:
 #   paths:
 #     - /var/log/*.log
 
-- type: log
-  enabled: true
-  paths:
-    - /var/log/syslog
-  tags: ["syslog"]
-
-- type: log
+- type: filestream
   enabled: true
   paths:
     - /var/log/auth.log
   tags: ["authlog"]
-
-- type: log
+  
+- type: filestream
+  enabled: true
+  paths:
+    - /var/log/syslog
+  tags: ["syslog"]
+  
+- type: filestream
   enabled: true
   paths:
     - /var/log/kern.log
   tags: ["kernlog"]
 
-- type: log
+- type: filestream
   enabled: true
   paths:
     - /var/log/audit/audit.log
   tags: ["auditd"]
 
-- type: log
+- type: filestream
   enabled: true
   paths:
     - /var/log/dpkg.log
   tags: ["dpkglog"]
 
-- type: log
+- type: filestream
   enabled: true
   paths:
     - /var/log/faillog
@@ -46,14 +46,14 @@ filebeat.inputs:
     - /var/log/wtmp
   tags: ["login-attempts"]
 
-- type: log
+- type: filestream
   enabled: true
   paths:
     - /var/log/ufw.log
   tags: ["firewall"]
 
 # ========== Application Logs ============
-- type: log
+- type: filestream
   enabled: true
   paths:
     - /var/log/nginx/access.log
@@ -64,7 +64,7 @@ filebeat.inputs:
 
 output.kafka:
   enabled: true
-  hosts: ["localhost:9092"]
+  hosts: ["192..168.37.132:9092"]
   topic: "system-logs"
   partition.round_robin:
     reachable_only: false
