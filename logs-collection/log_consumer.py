@@ -11,85 +11,109 @@ consumer = Consumer({
 
 consumer.subscribe(['server-logs'])
 
-# Regular expressions for parsing Nginx and auth logs
+# Regex patterns
 nginx_pattern = r'(?P<ip>\d+\.\d+\.\d+\.\d+) - - \[(?P<timestamp>[^\]]+)\] "(?P<method>[A-Z]+) (?P<url>.*?) HTTP/1.1" (?P<status>\d+) (?P<size>\d+) "(?P<referer>.*?)" "(?P<user_agent>.*?)"'
+auth_pattern = r'(?P<timestamp>\w+ \d+ \d+:\d+:\d+) (?P<hostname>[\w\-.]+) (?P<process>[\w\-]+)(\[(?P<pid>\d+)\])?: (?P<message>.*)'
+syslog_pattern = r'(?P<timestamp>\w{3} \d{1,2} \d{2}:\d{2}:\d{2}) (?P<hostname>[\w\-.]+) (?P<program>[\w\-.]+)(?:\[(?P<pid>\d+)\])?: (?P<message>.+)'
+kern_pattern = r'(?P<timestamp>\w{3} \d{1,2} \d{2}:\d{2}:\d{2}) (?P<hostname>[\w\-.]+) kernel: \[(?P<uptime>[\d\.]+)\] (?P<message>.+)'
 
-auth_pattern = r'(?P<timestamp>\w+ \d+ \d+:\d+:\d+:\d+) (?P<hostname>[\w\-]+) (?P<process>[\w\-]+)\[(?P<pid>\d+)\]: (?P<message>.*)'
-
+# Parsing functions
 def parse_nginx_log(log):
-    """
-    Parse Nginx log using regex pattern.
-    """
     match = re.match(nginx_pattern, log)
-    if match:
-        return match.groupdict()
-    else:
-        return None
+    return match.groupdict() if match else None
 
 def parse_auth_log(log):
-    """
-    Parse auth log using regex pattern for traditional logs.
-    """
     match = re.match(auth_pattern, log)
-    if match:
-        return match.groupdict()
-    else:
-        return None
+    return match.groupdict() if match else None
+
+def parse_syslog_log(log):
+    match = re.match(syslog_pattern, log)
+    return match.groupdict() if match else None
+
+def parse_kern_log(log):
+    match = re.match(kern_pattern, log)
+    return match.groupdict() if match else None
+
+def should_drop_log(parsed_log):
+    return parsed_log.get("program") == "filebeat" or parsed_log.get("process") == "filebeat"
 
 def process_json_log(log_json):
-    """
-    Process structured JSON logs (e.g., from Filebeat) and extract relevant fields.
-    """
     try:
-        log_data = json.loads(log_json)  # Parse the JSON string
+        log_data = json.loads(log_json)
 
-        # Extract the message field and other metadata
         message = log_data.get("message", "No message available")
         timestamp = log_data.get("@timestamp", "No timestamp")
         host = log_data.get("host", {}).get("hostname", "No hostname")
-        file_path = log_data.get("log", {}).get("file", {}).get("path", "No file path")
+        file_path = log_data.get("log", {}).get("file", {}).get("path", "unknown")
 
-        parsed_log = {
+        for parser, label in [
+            (parse_nginx_log, "Parsed Nginx Log (from JSON)"),
+            (parse_auth_log, "Parsed System Log (from JSON)"),
+            (parse_syslog_log, "Parsed System Log (from JSON)"),
+            (parse_kern_log, "Parsed Kernel Log (from JSON)")
+        ]:
+            result = parser(message)
+            if result:
+                if should_drop_log(result):
+                    return
+                result["source_file"] = file_path
+                print(f"{label}:", json.dumps(result, indent=4))
+                return
+
+        # Generic structured log fallback
+        print("Parsed Structured Log (Generic):", json.dumps({
             "timestamp": timestamp,
             "host": host,
             "file_path": file_path,
             "message": message
-        }
-
-        print("Parsed Structured Log:", json.dumps(parsed_log, indent=4))
+        }, indent=4))
 
     except json.JSONDecodeError as e:
         print(f"Error decoding JSON: {e}")
         print(f"Invalid log: {log_json}")
 
 def process_log(log):
-    """
-    Process the log, identify the type, and parse it.
-    """
-    # First, check if it's a JSON log (Filebeat log, structured log)
     try:
-        log_data = json.loads(log)
+        json.loads(log)
         process_json_log(log)
         return
     except json.JSONDecodeError:
-        pass  # Not a JSON log, so continue checking other formats
+        pass
 
-    # Check if it's an Nginx log
+    # For raw logs, file path is unknown
+    file_path = "unknown"
+
     nginx_parsed = parse_nginx_log(log)
     if nginx_parsed:
+        nginx_parsed["source_file"] = file_path
         print("Parsed Nginx Log:", json.dumps(nginx_parsed, indent=4))
         return
-    
-    # If not Nginx, check if it's an auth log
+
     auth_parsed = parse_auth_log(log)
     if auth_parsed:
+        if should_drop_log(auth_parsed):
+            return
+        auth_parsed["source_file"] = file_path
         print("Parsed Auth Log:", json.dumps(auth_parsed, indent=4))
         return
-    
-    # If it's neither, just print the raw log
+
+    syslog_parsed = parse_syslog_log(log)
+    if syslog_parsed:
+        if should_drop_log(syslog_parsed):
+            return
+        syslog_parsed["source_file"] = file_path
+        print("Parsed Syslog Log:", json.dumps(syslog_parsed, indent=4))
+        return
+
+    kern_parsed = parse_kern_log(log)
+    if kern_parsed:
+        kern_parsed["source_file"] = file_path
+        print("Parsed Kernel Log:", json.dumps(kern_parsed, indent=4))
+        return
+
     print("Unrecognized Log:", log)
 
-# Main loop for consuming logs
+# Main loop
 print("Listening for logs...")
 
 try:
